@@ -1,6 +1,7 @@
 from tops.config import instantiate, LazyConfig
 from ssd import utils
 from tqdm import tqdm
+from collections import defaultdict
 
 
 def get_config(config_path):
@@ -22,10 +23,30 @@ def get_dataloader(cfg, dataset_to_visualize):
 
 
 def analyze_something(dataloader, cfg):
+    label_counts = defaultdict(int)
+    label_aspect_ratios = defaultdict(list)
+    label_areas = defaultdict(list)
+    image_widths = []
+    image_heights = []
+
     for batch in tqdm(dataloader):
-        # Remove the two lines below and start analyzing :D
-        print("The keys in the batch are:", batch.keys())
-        exit()
+        for idx, label in enumerate(batch["labels"][0]):
+            label_counts[label] += 1
+
+            _, _, width, height = batch["boxes"][0][idx]
+            label_aspect_ratios[label].append(width / height)
+            label_areas[label].append(width * height)
+
+        image_widths.append(batch["width"][0])
+        image_heights.append(batch["height"][0])
+
+    return {
+        "label_counts": label_counts,
+        "label_aspect_ratios": label_aspect_ratios,
+        "label_areas": label_areas,
+        "image_widths": image_widths,
+        "image_heights": image_heights
+    }
 
 
 def main():
