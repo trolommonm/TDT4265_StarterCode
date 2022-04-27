@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import List
+from typing import List, Tuple
 import torch.nn
 from torch import nn
 import torchvision
@@ -20,28 +20,34 @@ class FPN(nn.Module):
 
     def __init__(self,
                  resnet_type,
+                 output_channels: List[int],
+                 output_feature_sizes: List[Tuple[int]],
                  pretrained=True):
         super().__init__()
         # self.out_channels = [64, 128, 256, 512, 1024, 2048]
-        # self.out_channels = [256, 256, 256, 256, 256, 256]
-        self.out_channels = [64, 64, 64, 64, 64, 64]
+        self.out_channels = output_channels
+        self.output_feature_shape = output_feature_sizes
         self.resnet_model = resnet_type_dict[resnet_type](pretrained=pretrained)
 
         # We will be using layers 1 to 4 of the ResNet model for the first 4 feature extractors.
         # Define 2 more layers so that there are a total of 6 feature extractors
         self.layer5 = nn.Sequential(
-            nn.Conv2d(512, 1024, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False),
-            nn.BatchNorm2d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(),
-            nn.Conv2d(1024, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False),
-            nn.BatchNorm2d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            nn.Conv2d(2048, 512, kernel_size=(1, 1), stride=(1, 1), padding=0, bias=False),
+            nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+            nn.Conv2d(512, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False),
+            nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+            nn.Conv2d(512, 2048, kernel_size=(1, 1), stride=(1, 1), padding=0, bias=False),
+            nn.BatchNorm2d(2048, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+            nn.ReLU()
         )
         self.layer6 = nn.Sequential(
-            nn.Conv2d(1024, 2048, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False),
+            nn.Conv2d(2048, 512, kernel_size=(1, 1), stride=(1, 1), padding=0, bias=False),
+            nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+            nn.Conv2d(512, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False),
+            nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+            nn.Conv2d(512, 2048, kernel_size=(1, 1), stride=(1, 1), padding=0, bias=False),
             nn.BatchNorm2d(2048, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(),
-            nn.Conv2d(2048, 2048, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False),
-            nn.BatchNorm2d(2048, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            nn.ReLU()
         )
 
         self.feature_extractors = nn.ModuleList([
@@ -53,7 +59,7 @@ class FPN(nn.Module):
             self.layer6
         ])
 
-        self.fpn = torchvision.ops.FeaturePyramidNetwork([64, 128, 256, 512, 1024, 2048], 64)
+        self.fpn = torchvision.ops.FeaturePyramidNetwork([256, 512, 1024, 2048, 2048, 2048], 256)
 
     def forward(self, x):
         """
@@ -83,5 +89,14 @@ class FPN(nn.Module):
         #     print(feature.shape[1:])
 
         output = self.fpn(out_features)
+
+        for idx, feature in enumerate(output.values()):
+            out_channel = self.out_channels[idx]
+            h, w = self.output_feature_shape[idx]
+            expected_shape = (out_channel, h, w)
+            assert feature.shape[1:] == expected_shape, \
+                f"Expected shape: {expected_shape}, got: {feature.shape[1:]} at output IDX: {idx}"
+        assert len(out_features) == len(self.output_feature_shape), \
+            f"Expected that the length of the outputted features to be: {len(self.output_feature_shape)}, but it was: {len(out_features)}"
 
         return tuple(output.values())

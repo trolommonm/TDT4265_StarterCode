@@ -16,6 +16,8 @@ from ssd.modeling import backbones
 from tops.config import LazyCall as L
 
 backbone = L(backbones.FPN)(
-    resnet_type="resnet34",
+    resnet_type="resnet101",
+    output_channels=[256, 256, 256, 256, 256, 256],
+    output_feature_sizes="${anchors.feature_sizes}",
     pretrained=True
 )

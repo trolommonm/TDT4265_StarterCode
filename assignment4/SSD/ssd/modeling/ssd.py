@@ -1,15 +1,16 @@
 import torch
 import torch.nn as nn
+import numpy as np
 from .anchor_encoder import AnchorEncoder
 from torchvision.ops import batched_nms
 
 
 class SSD300(nn.Module):
-    def __init__(self, 
-            feature_extractor: nn.Module,
-            anchors,
-            loss_objective,
-            num_classes: int):
+    def __init__(self,
+                 feature_extractor: nn.Module,
+                 anchors,
+                 loss_objective,
+                 num_classes: int):
         super().__init__()
         """
             Implements the SSD network.
@@ -38,6 +39,17 @@ class SSD300(nn.Module):
             for param in layer.parameters():
                 if param.dim() > 1: nn.init.xavier_uniform_(param)
 
+        # for layer in self.regression_heads:
+        #     nn.init.normal_(layer.weight, std=0.01)
+        #     nn.init.constant_(layer.bias, 0)
+        #
+        # for layer in self.classification_heads:
+        #     nn.init.normal_(layer.weight, std=0.01)
+        #     nn.init.constant_(layer.bias, 0)
+        #
+        # pi = 0.01
+        # nn.init.constant_(self.classification_heads[-1].bias, -np.log((1 - pi) / pi))
+
     def regress_boxes(self, features):
         locations = []
         confidences = []
@@ -50,7 +62,6 @@ class SSD300(nn.Module):
         confidences = torch.cat(confidences, 2).contiguous()
         return bbox_delta, confidences
 
-    
     def forward(self, img: torch.Tensor, **kwargs):
         """
             img: shape: NCHW
@@ -59,11 +70,11 @@ class SSD300(nn.Module):
             return self.forward_test(img, **kwargs)
         features = self.feature_extractor(img)
         return self.regress_boxes(features)
-    
+
     def forward_test(self,
-            img: torch.Tensor,
-            imshape=None,
-            nms_iou_threshold=0.5, max_output=200, score_threshold=0.05):
+                     img: torch.Tensor,
+                     imshape=None,
+                     nms_iou_threshold=0.5, max_output=200, score_threshold=0.05):
         """
             img: shape: NCHW
             nms_iou_threshold, max_output is only used for inference/evaluation, not for training
@@ -83,28 +94,28 @@ class SSD300(nn.Module):
             predictions.append((boxes, categories, scores))
         return predictions
 
- 
+
 def filter_predictions(
         boxes_ltrb: torch.Tensor, confs: torch.Tensor,
         nms_iou_threshold: float, max_output: int, score_threshold: float):
-        """
+    """
             boxes_ltrb: shape [N, 4]
             confs: shape [N, num_classes]
         """
-        assert 0 <= nms_iou_threshold <= 1
-        assert max_output > 0
-        assert 0 <= score_threshold <= 1
-        scores, category = confs.max(dim=1)
+    assert 0 <= nms_iou_threshold <= 1
+    assert max_output > 0
+    assert 0 <= score_threshold <= 1
+    scores, category = confs.max(dim=1)
 
-        # 1. Remove low confidence boxes / background boxes
-        mask = (scores > score_threshold).logical_and(category != 0)
-        boxes_ltrb = boxes_ltrb[mask]
-        scores = scores[mask]
-        category = category[mask]
+    # 1. Remove low confidence boxes / background boxes
+    mask = (scores > score_threshold).logical_and(category != 0)
+    boxes_ltrb = boxes_ltrb[mask]
+    scores = scores[mask]
+    category = category[mask]
 
-        # 2. Perform non-maximum-suppression
-        keep_idx = batched_nms(boxes_ltrb, scores, category, iou_threshold=nms_iou_threshold)
+    # 2. Perform non-maximum-suppression
+    keep_idx = batched_nms(boxes_ltrb, scores, category, iou_threshold=nms_iou_threshold)
 
-        # 3. Only keep max_output best boxes (NMS returns indices in sorted order, decreasing w.r.t. scores)
-        keep_idx = keep_idx[:max_output]
-        return boxes_ltrb[keep_idx], category[keep_idx], scores[keep_idx]
+    # 3. Only keep max_output best boxes (NMS returns indices in sorted order, decreasing w.r.t. scores)
+    keep_idx = keep_idx[:max_output]
+    return boxes_ltrb[keep_idx], category[keep_idx], scores[keep_idx]
