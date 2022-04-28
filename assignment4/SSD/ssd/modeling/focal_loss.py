@@ -1,32 +1,7 @@
 import torch.nn as nn
 import torch
-import math
 import torch.nn.functional as F
 from tops import to_cuda
-
-
-def hard_negative_mining(loss, labels, neg_pos_ratio):
-    """
-    It used to suppress the presence of a large number of negative prediction.
-    It works on image level not batch level.
-    For any example/image, it keeps all the positive predictions and
-     cut the number of negative predictions to make sure the ratio
-     between the negative examples and positive examples is no more
-     the given ratio for an image.
-    Args:
-        loss (N, num_priors): the loss for each example.
-        labels (N, num_priors): the labels.
-        neg_pos_ratio:  the ratio between the negative examples and positive examples.
-    """
-    pos_mask = labels > 0
-    num_pos = pos_mask.long().sum(dim=1, keepdim=True)
-    num_neg = num_pos * neg_pos_ratio
-
-    loss[pos_mask] = -math.inf
-    _, indexes = loss.sort(dim=1, descending=True)
-    _, orders = indexes.sort(dim=1)
-    neg_mask = orders < num_neg
-    return pos_mask | neg_mask
 
 
 def focal_loss(confs, gt_labels):
@@ -42,7 +17,8 @@ def focal_loss(confs, gt_labels):
     soft_confs = F.softmax(confs, dim=1)
     log_soft_confs = F.log_softmax(confs, dim=1)
 
-    alpha = torch.FloatTensor([0.01, 1, 1, 1, 1, 1, 1, 1, 1])
+    # alpha = torch.FloatTensor([0.01, 1, 1, 1, 1, 1, 1, 1, 1])
+    alpha = torch.FloatTensor([10, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000])
     alpha = alpha.view(1, -1, 1)
     alpha = to_cuda(alpha)
     gamma = 2
@@ -91,11 +67,16 @@ class FocalLoss(nn.Module):
             gt_label = [batch_size, num_anchors]
         """
         gt_bbox = gt_bbox.transpose(1, 2).contiguous()  # reshape to [batch_size, 4, num_anchors]
-        # with torch.no_grad():
-        #     to_log = - F.log_softmax(confs, dim=1)[:, 0]
-        #     mask = hard_negative_mining(to_log, gt_labels, 3.0)
-        # classification_loss = F.cross_entropy(confs, gt_labels, reduction="none")
-        # classification_loss = classification_loss[mask].sum()
+
+        """
+        with torch.no_grad():
+            to_log = - F.log_softmax(confs, dim=1)[:, 0]
+            mask = hard_negative_mining(to_log, gt_labels, 3.0)
+        classification_loss = F.cross_entropy(confs, gt_labels, reduction="none")
+        classification_loss = classification_loss[mask].sum()
+        """
+
+        # focal loss
         classification_loss = focal_loss(confs, gt_labels)
         print("classification_loss: ", classification_loss)
 
