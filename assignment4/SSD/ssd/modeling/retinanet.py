@@ -84,6 +84,7 @@ class RetinaNet(nn.Module):
                         nn.init.constant_(layer.bias.data, 0)
 
                 # set the last convolutional layer's bias
+                print("last: ", module[-1])
                 nn.init.constant_(module[-1].bias.data[:num_anchors], -np.log((1 - pi) / pi))
 
             # for layer in self.regression_heads:
