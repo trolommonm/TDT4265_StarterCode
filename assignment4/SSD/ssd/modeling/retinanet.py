@@ -79,6 +79,7 @@ class RetinaNet(nn.Module):
             for num_anchors, module in zip(self.anchors.num_boxes_per_fmap, self.classification_heads):
                 for layer in module:
                     if hasattr(layer, "bias"):
+                        print(layer)
                         nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
                         nn.init.constant_(layer.bias.data, 0)
 
