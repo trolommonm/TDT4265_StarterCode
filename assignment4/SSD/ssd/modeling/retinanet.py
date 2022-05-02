@@ -69,16 +69,32 @@ class RetinaNet(nn.Module):
     def _init_weights(self, use_improved_weight):
         if use_improved_weight:
             # task 2.3.4 weight initialization
-            for layer in self.regression_heads:
-                nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
-                nn.init.constant_(layer.bias.data, 0)
+            for module in self.regression_heads:
+                for layer in module:
+                    if hasattr(layer, "bias"):
+                        nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
+                        nn.init.constant_(layer.bias.data, 0)
 
-            for num_anchors, layer in zip(self.anchors.num_boxes_per_fmap, self.classification_heads):
-                nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
-                nn.init.constant_(layer.bias.data, 0)
+            pi = 0.01
+            for num_anchors, module in zip(self.anchors.num_boxes_per_fmap, self.classification_heads):
+                for layer in module:
+                    if hasattr(layer, "bias"):
+                        nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
+                        nn.init.constant_(layer.bias.data, 0)
 
-                pi = 0.01
-                nn.init.constant_(layer.bias.data[:num_anchors], -np.log((1 - pi) / pi))
+                # set the last convolutional layer's bias
+                nn.init.constant_(module[-1].bias.data[:num_anchors], -np.log((1 - pi) / pi))
+
+            # for layer in self.regression_heads:
+            #     nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
+            #     nn.init.constant_(layer.bias.data, 0)
+            #
+            # for num_anchors, layer in zip(self.anchors.num_boxes_per_fmap, self.classification_heads):
+            #     nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
+            #     nn.init.constant_(layer.bias.data, 0)
+            #
+            #     pi = 0.01
+            #     nn.init.constant_(layer.bias.data[:num_anchors], -np.log((1 - pi) / pi))
         else:
             layers = [*self.regression_heads, *self.classification_heads]
             for layer in layers:
