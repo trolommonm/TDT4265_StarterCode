@@ -85,6 +85,8 @@ def save_images_with_annotations(dataloader, cfg, save_folder, num_images_to_vis
         cv2.imwrite(filepath, viz_image[:, :, ::-1])
 
 
+
+
 def main():
     config_path = "configs/tdt4265.py"
     cfg = get_config(config_path)
