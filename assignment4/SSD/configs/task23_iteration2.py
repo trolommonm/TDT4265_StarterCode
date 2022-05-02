@@ -1,8 +1,7 @@
-from .task23_config import (
+from .task23_iteration1 import (
     train,
     optimizer,
     schedulers,
-    model,
     data_train,
     data_val,
     train_cpu_transform,
@@ -10,7 +9,8 @@ from .task23_config import (
     gpu_transform,
     label_map,
     anchors,
-    backbone
+    backbone,
+    model
 )
 from ssd.modeling import FocalLoss
 from tops.config import LazyCall as L

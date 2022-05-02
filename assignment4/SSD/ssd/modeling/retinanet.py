@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
+import numpy as np
 from .anchor_encoder import AnchorEncoder
 from torchvision.ops import batched_nms
 
 
-class SSD300(nn.Module):
+class RetinaNet(nn.Module):
     def __init__(self,
                  feature_extractor: nn.Module,
                  anchors,
@@ -12,8 +13,7 @@ class SSD300(nn.Module):
                  num_classes: int):
         super().__init__()
         """
-            Implements the SSD network.
-            Backbone outputs a list of features, which are gressed to SSD output with regression/classification heads.
+            Implements the RetinaNet network.
         """
 
         self.feature_extractor = feature_extractor
@@ -21,6 +21,7 @@ class SSD300(nn.Module):
         self.num_classes = num_classes
         self.regression_heads = []
         self.classification_heads = []
+        self.anchors = anchors
 
         # Initialize output heads that are applied to each feature map from the backbone.
         for n_boxes, out_ch in zip(anchors.num_boxes_per_fmap, self.feature_extractor.out_channels):
@@ -33,10 +34,17 @@ class SSD300(nn.Module):
         self._init_weights()
 
     def _init_weights(self):
-        layers = [*self.regression_heads, *self.classification_heads]
-        for layer in layers:
-            for param in layer.parameters():
-                if param.dim() > 1: nn.init.xavier_uniform_(param)
+        # task 2.3.4 weight initialization
+        for layer in self.regression_heads:
+            nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
+            nn.init.constant_(layer.bias.data, 0)
+
+        for num_anchors, layer in zip(self.anchors.num_boxes_per_fmap, self.classification_heads):
+            nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
+            nn.init.constant_(layer.bias.data, 0)
+
+            pi = 0.01
+            nn.init.constant_(layer.bias.data[:num_anchors], -np.log((1 - pi) / pi))
 
     def regress_boxes(self, features):
         locations = []
