@@ -10,7 +10,9 @@ class RetinaNet(nn.Module):
                  feature_extractor: nn.Module,
                  anchors,
                  loss_objective,
-                 num_classes: int):
+                 num_classes: int,
+                 use_improved_weight=False,
+                 use_deeper_heads=False):
         super().__init__()
         """
             Implements the RetinaNet network.
@@ -23,28 +25,65 @@ class RetinaNet(nn.Module):
         self.classification_heads = []
         self.anchors = anchors
 
-        # Initialize output heads that are applied to each feature map from the backbone.
-        for n_boxes, out_ch in zip(anchors.num_boxes_per_fmap, self.feature_extractor.out_channels):
-            self.regression_heads.append(nn.Conv2d(out_ch, n_boxes * 4, kernel_size=3, padding=1))
-            self.classification_heads.append(nn.Conv2d(out_ch, n_boxes * self.num_classes, kernel_size=3, padding=1))
+        if use_deeper_heads:
+            # task 2.3.3 use deeper regression and classification heads
+            for n_boxes, out_ch in zip(anchors.num_boxes_per_fmap, self.feature_extractor.out_channels):
+                C = out_ch
+                deeper_reg_head = nn.Sequential(
+                    nn.Conv2d(in_channels=out_ch, out_channels=C, kernel_size=3, padding=1),
+                    nn.ReLU(),
+                    nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
+                    nn.ReLU(),
+                    nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
+                    nn.ReLU(),
+                    nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
+                    nn.ReLU(),
+                    nn.Conv2d(in_channels=C, out_channels=n_boxes * 4, kernel_size=3, padding=1)
+                )
+                self.regression_heads.append(deeper_reg_head)
+
+                deeper_class_head = nn.Sequential(
+                    nn.Conv2d(in_channels=out_ch, out_channels=C, kernel_size=3, padding=1),
+                    nn.ReLU(),
+                    nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
+                    nn.ReLU(),
+                    nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
+                    nn.ReLU(),
+                    nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
+                    nn.ReLU(),
+                    nn.Conv2d(in_channels=C, out_channels=n_boxes * self.num_classes, kernel_size=3, padding=1)
+                )
+                self.classification_heads.append(deeper_class_head)
+        else:
+            # Initialize output heads that are applied to each feature map from the backbone.
+            for n_boxes, out_ch in zip(anchors.num_boxes_per_fmap, self.feature_extractor.out_channels):
+                self.regression_heads.append(nn.Conv2d(out_ch, n_boxes * 4, kernel_size=3, padding=1))
+                self.classification_heads.append(nn.Conv2d(out_ch, n_boxes * self.num_classes, kernel_size=3, padding=1))
 
         self.regression_heads = nn.ModuleList(self.regression_heads)
         self.classification_heads = nn.ModuleList(self.classification_heads)
         self.anchor_encoder = AnchorEncoder(anchors)
-        self._init_weights()
 
-    def _init_weights(self):
-        # task 2.3.4 weight initialization
-        for layer in self.regression_heads:
-            nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
-            nn.init.constant_(layer.bias.data, 0)
+        self._init_weights(use_improved_weight)
 
-        for num_anchors, layer in zip(self.anchors.num_boxes_per_fmap, self.classification_heads):
-            nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
-            nn.init.constant_(layer.bias.data, 0)
+    def _init_weights(self, use_improved_weight):
+        if use_improved_weight:
+            # task 2.3.4 weight initialization
+            for layer in self.regression_heads:
+                nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
+                nn.init.constant_(layer.bias.data, 0)
 
-            pi = 0.01
-            nn.init.constant_(layer.bias.data[:num_anchors], -np.log((1 - pi) / pi))
+            for num_anchors, layer in zip(self.anchors.num_boxes_per_fmap, self.classification_heads):
+                nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
+                nn.init.constant_(layer.bias.data, 0)
+
+                pi = 0.01
+                nn.init.constant_(layer.bias.data[:num_anchors], -np.log((1 - pi) / pi))
+        else:
+            layers = [*self.regression_heads, *self.classification_heads]
+            for layer in layers:
+                for param in layer.parameters():
+                    if param.dim() > 1: nn.init.xavier_uniform_(param)
 
     def regress_boxes(self, features):
         locations = []

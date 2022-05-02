@@ -34,32 +34,47 @@ class FPN(nn.Module):
         layers_output_channels = []
         for idx, l in enumerate(layers):
             tmp = l(tmp)
+            # skip the conv1, bn1, relu and maxpool layers
             if idx == 0 or idx == 1 or idx == 2 or idx == 3:
                 continue
             layers_output_channels.append(tmp.shape[1])
 
         # We will be using layers 1 to 4 of the ResNet model for the first 4 feature extractors.
         # Define 2 more layers so that there are a total of 6 feature extractors
+        # self.layer5 = nn.Sequential(
+        #     nn.Conv2d(layers_output_channels[-1], 512, kernel_size=(1, 1), stride=(1, 1), padding=0, bias=False),
+        #     nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+        #     nn.Conv2d(512, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False),
+        #     nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+        #     nn.Conv2d(512, layers_output_channels[-1] * 2, kernel_size=(1, 1), stride=(1, 1), padding=0, bias=False),
+        #     nn.BatchNorm2d(layers_output_channels[-1] * 2, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+        #     nn.ReLU()
+        # )
+        # self.layer6 = nn.Sequential(
+        #     nn.Conv2d(layers_output_channels[-1] * 2, 512, kernel_size=(1, 1), stride=(1, 1), padding=0, bias=False),
+        #     nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+        #     nn.Conv2d(512, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False),
+        #     nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+        #     nn.Conv2d(512, layers_output_channels[-1] * 2, kernel_size=(1, 1), stride=(1, 1), padding=0, bias=False),
+        #     nn.BatchNorm2d(layers_output_channels[-1] * 2, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+        #     nn.ReLU()
+        # )
         self.layer5 = nn.Sequential(
-            nn.Conv2d(layers_output_channels[-1], 512, kernel_size=(1, 1), stride=(1, 1), padding=0, bias=False),
-            nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.Conv2d(512, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False),
-            nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.Conv2d(512, layers_output_channels[-1] * 2, kernel_size=(1, 1), stride=(1, 1), padding=0, bias=False),
-            nn.BatchNorm2d(layers_output_channels[-1] * 2, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+            nn.Conv2d(layers_output_channels[-1], layers_output_channels[-1] * 2, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1)),
+            nn.BatchNorm2d(layers_output_channels[-1] * 2),
+            nn.Conv2d(layers_output_channels[-1] * 2, layers_output_channels[-1] * 2, kernel_size=(1, 1), stride=(1, 1), padding=0),
+            nn.BatchNorm2d(layers_output_channels[-1] * 2),
             nn.ReLU()
         )
         self.layer6 = nn.Sequential(
-            nn.Conv2d(layers_output_channels[-1] * 2, 512, kernel_size=(1, 1), stride=(1, 1), padding=0, bias=False),
-            nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.Conv2d(512, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False),
-            nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.Conv2d(512, layers_output_channels[-1] * 2, kernel_size=(1, 1), stride=(1, 1), padding=0, bias=False),
-            nn.BatchNorm2d(layers_output_channels[-1] * 2, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+            nn.Conv2d(layers_output_channels[-1] * 2, layers_output_channels[-1] * 4, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1)),
+            nn.BatchNorm2d(layers_output_channels[-1] * 4),
+            nn.Conv2d(layers_output_channels[-1] * 4, layers_output_channels[-1] * 4, kernel_size=(1, 1), stride=(1, 1), padding=0),
+            nn.BatchNorm2d(layers_output_channels[-1] * 4),
             nn.ReLU()
         )
 
-        layers_output_channels.extend([layers_output_channels[-1] * 2, layers_output_channels[-1] * 2])
+        layers_output_channels.extend([layers_output_channels[-1] * 2, layers_output_channels[-1] * 4])
 
         self.feature_extractors = nn.ModuleList([
             self.resnet_model.layer1,

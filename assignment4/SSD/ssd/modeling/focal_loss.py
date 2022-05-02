@@ -10,22 +10,16 @@ def focal_loss(confs, gt_labels):
     gt_labels = [batch_size, num_anchors]
     """
     num_classes = 8 + 1  # add 1 for background class
-    num_anchors = gt_labels.shape[1]
-    batch_size = gt_labels.shape[0]
     gt_labels = torch.permute(F.one_hot(gt_labels, num_classes), (0, 2, 1))  # [batch_size, num_classes, num_anchors]
 
     soft_confs = F.softmax(confs, dim=1)
     log_soft_confs = F.log_softmax(confs, dim=1)
 
-    # alpha = torch.FloatTensor([0.01, 1, 1, 1, 1, 1, 1, 1, 1])
     alpha = torch.FloatTensor([10, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000])
     alpha = alpha.view(1, -1, 1)
     alpha = to_cuda(alpha)
     gamma = 2
     x = - alpha * (1 - soft_confs) ** gamma * gt_labels * log_soft_confs  # [batch_size, num_classes, num_anchors]
-    # x = -torch.sum(x, axis=2)  # [batch_size, num_anchors]
-    # x = torch.sum(x, axis=1) / num_anchors  # [batch_size]
-    # x = torch.sum(x)  # / batch_size
     x = x.sum(dim=1).mean()
 
     return x
@@ -33,10 +27,7 @@ def focal_loss(confs, gt_labels):
 
 class FocalLoss(nn.Module):
     """
-        Implements the loss as the sum of the followings:
-        1. Confidence Loss: All labels, with hard negative mining
-        2. Localization Loss: Only on positive labels
-        Suppose input dboxes has the shape 8732x4
+        Implements focal loss
     """
 
     def __init__(self, anchors):
