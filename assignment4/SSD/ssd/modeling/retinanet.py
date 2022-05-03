@@ -5,6 +5,20 @@ from .anchor_encoder import AnchorEncoder
 from torchvision.ops import batched_nms
 
 
+def subnet(in_channels, out_channels):
+    return nn.Sequential(
+        nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1),
+        nn.ReLU(),
+        nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1),
+        nn.ReLU(),
+        nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1),
+        nn.ReLU(),
+        nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1),
+        nn.ReLU(),
+        nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=1)
+    )
+
+
 class RetinaNet(nn.Module):
     def __init__(self,
                  feature_extractor: nn.Module,
@@ -24,64 +38,14 @@ class RetinaNet(nn.Module):
         self.regression_heads = []
         self.classification_heads = []
         self.anchors = anchors
-        self.num_anchors = 6
+        self.num_anchors = anchors.num_boxes_per_fmap[0]
         self.use_deeper_heads = use_deeper_heads
 
         if use_deeper_heads:
-            # task 2.3.3 use deeper regression and classification heads
-            out_ch = 256
-            C = 256
-            self.regression_heads = nn.Sequential(
-                                        nn.Conv2d(in_channels=out_ch, out_channels=C, kernel_size=3, padding=1),
-                                        nn.ReLU(),
-                                        nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
-                                        nn.ReLU(),
-                                        nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
-                                        nn.ReLU(),
-                                        nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
-                                        nn.ReLU(),
-                                        nn.Conv2d(in_channels=C, out_channels=self.num_anchors * 4, kernel_size=3, padding=1)
-                                    )
-
-            self.classification_heads = nn.Sequential(
-                                            nn.Conv2d(in_channels=out_ch, out_channels=C, kernel_size=3, padding=1),
-                                            nn.ReLU(),
-                                            nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
-                                            nn.ReLU(),
-                                            nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
-                                            nn.ReLU(),
-                                            nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
-                                            nn.ReLU(),
-                                            nn.Conv2d(in_channels=C, out_channels=self.num_anchors * self.num_classes, kernel_size=3, padding=1)
-                                        )
-
-            # for n_boxes, out_ch in zip(anchors.num_boxes_per_fmap, self.feature_extractor.out_channels):
-            #     C = out_ch
-            #     deeper_reg_head = nn.Sequential(
-            #         nn.Conv2d(in_channels=out_ch, out_channels=C, kernel_size=3, padding=1),
-            #         nn.ReLU(),
-            #         nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
-            #         nn.ReLU(),
-            #         nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
-            #         nn.ReLU(),
-            #         nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
-            #         nn.ReLU(),
-            #         nn.Conv2d(in_channels=C, out_channels=n_boxes * 4, kernel_size=3, padding=1)
-            #     )
-            #     self.regression_heads.append(deeper_reg_head)
-            #
-            #     deeper_class_head = nn.Sequential(
-            #         nn.Conv2d(in_channels=out_ch, out_channels=C, kernel_size=3, padding=1),
-            #         nn.ReLU(),
-            #         nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
-            #         nn.ReLU(),
-            #         nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
-            #         nn.ReLU(),
-            #         nn.Conv2d(in_channels=C, out_channels=C, kernel_size=3, padding=1),
-            #         nn.ReLU(),
-            #         nn.Conv2d(in_channels=C, out_channels=n_boxes * self.num_classes, kernel_size=3, padding=1)
-            #     )
-            #     self.classification_heads.append(deeper_class_head)
+            # task 2.3.3 use shared deeper regression and classification heads
+            in_channels = self.feature_extractor.out_channels[0]
+            self.regression_heads = subnet(in_channels, self.num_anchors * 4)
+            self.classification_heads = subnet(in_channels, self.num_anchors * self.num_classes)
         else:
             # Initialize output heads that are applied to each feature map from the backbone.
             for n_boxes, out_ch in zip(anchors.num_boxes_per_fmap, self.feature_extractor.out_channels):
@@ -96,62 +60,22 @@ class RetinaNet(nn.Module):
         self._init_weights(use_improved_weight)
 
     def _init_weights(self, use_improved_weight):
+        layers = [*self.regression_heads, *self.classification_heads]
+
         if use_improved_weight:
             # task 2.3.4 weight initialization
-            for layer in self.regression_heads:
-                if hasattr(layer, "bias"):
-                    nn.init.normal_(layer.weight, mean=0.0, std=0.01)
-                    nn.init.constant_(layer.bias, 0)
-
-            for layer in self.classification_heads:
+            for layer in layers:
                 if hasattr(layer, "bias"):
                     nn.init.normal_(layer.weight, mean=0.0, std=0.01)
                     nn.init.constant_(layer.bias, 0)
 
             p = 0.99
-            b = np.log(p * (9 - 1) / (1 - p))
+            b = np.log(p * (self.num_classes - 1) / (1 - p))
             nn.init.constant_(self.classification_heads[-1].bias[:self.num_anchors], b)
-
-            # for module in self.regression_heads:
-            #     for layer in module:
-            #         if hasattr(layer, "bias"):
-            #             nn.init.normal_(layer.weight, mean=0.0, std=0.01)
-            #             nn.init.constant_(layer.bias, 0)
-            #
-            # # pi = 0.01
-            # p = 0.99
-            # b = np.log(p * (9 - 1) / (1 - p))
-            # for num_anchors, module in zip(self.anchors.num_boxes_per_fmap, self.classification_heads):
-            #     for layer in module:
-            #         if hasattr(layer, "bias"):
-            #             nn.init.normal_(layer.weight, mean=0.0, std=0.01)
-            #             nn.init.constant_(layer.bias, 0)
-            #
-            #     # set the last convolutional layer's bias
-            #     nn.init.constant_(module[-1].bias[:num_anchors], b) # -np.log((1 - pi) / pi))
-
-            # for layer in self.regression_heads:
-            #     nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
-            #     nn.init.constant_(layer.bias.data, 0)
-            #
-            # for num_anchors, layer in zip(self.anchors.num_boxes_per_fmap, self.classification_heads):
-            #     nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
-            #     nn.init.constant_(layer.bias.data, 0)
-            #
-            #     pi = 0.01
-            #     nn.init.constant_(layer.bias.data[:num_anchors], -np.log((1 - pi) / pi))
         else:
-            if self.use_deeper_heads:
-                for param in self.regression_heads.parameters():
+            for layer in layers:
+                for param in layer.parameters():
                     if param.dim() > 1: nn.init.xavier_uniform_(param)
-
-                for param in self.classification_heads.parameters():
-                    if param.dim() > 1: nn.init.xavier_uniform_(param)
-            else:
-                layers = [*self.regression_heads, *self.classification_heads]
-                for layer in layers:
-                    for param in layer.parameters():
-                        if param.dim() > 1: nn.init.xavier_uniform_(param)
 
     def regress_boxes(self, features):
         locations = []
