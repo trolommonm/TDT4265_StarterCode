@@ -26,4 +26,4 @@ model = L(RetinaNet)(
     use_deeper_heads=True
 )
 
-loss_objective.alpha = torch.FloatTensor([100, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000])
+loss_objective.alpha = torch.FloatTensor([1, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000])
