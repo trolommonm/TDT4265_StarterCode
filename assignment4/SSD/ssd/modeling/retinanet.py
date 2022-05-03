@@ -144,6 +144,9 @@ class RetinaNet(nn.Module):
             if self.use_deeper_heads:
                 for param in self.regression_heads.parameters():
                     if param.dim() > 1: nn.init.xavier_uniform_(param)
+
+                for param in self.classification_heads.parameters():
+                    if param.dim() > 1: nn.init.xavier_uniform_(param)
             else:
                 layers = [*self.regression_heads, *self.classification_heads]
                 for layer in layers:
