@@ -15,6 +15,7 @@ from .task23_iteration3 import (
 )
 from ssd.modeling import RetinaNet
 from tops.config import LazyCall as L
+import torch
 
 model = L(RetinaNet)(
     feature_extractor="${backbone}",
@@ -24,3 +25,5 @@ model = L(RetinaNet)(
     use_improved_weight=True,
     use_deeper_heads=True
 )
+
+loss_objective.alpha = torch.FloatTensor([100, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000])
