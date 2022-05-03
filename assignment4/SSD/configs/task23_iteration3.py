@@ -24,3 +24,5 @@ model = L(RetinaNet)(
     use_improved_weight=False,
     use_deeper_heads=True
 )
+
+anchors.aspect_ratios = [[2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3]]
