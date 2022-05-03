@@ -72,20 +72,20 @@ class RetinaNet(nn.Module):
             for module in self.regression_heads:
                 for layer in module:
                     if hasattr(layer, "bias"):
-                        nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
-                        nn.init.constant_(layer.bias.data, 0)
+                        nn.init.normal_(layer.weight, mean=0.0, std=0.01)
+                        nn.init.constant_(layer.bias, 0)
 
-            pi = 0.01
+            # pi = 0.01
+            p = 0.99
+            b = np.log(p * (9 - 1) / (1 - p))
             for num_anchors, module in zip(self.anchors.num_boxes_per_fmap, self.classification_heads):
                 for layer in module:
                     if hasattr(layer, "bias"):
-                        print(layer)
-                        nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
-                        nn.init.constant_(layer.bias.data, 0)
+                        nn.init.normal_(layer.weight, mean=0.0, std=0.01)
+                        nn.init.constant_(layer.bias, 0)
 
                 # set the last convolutional layer's bias
-                print("last: ", module[-1])
-                nn.init.constant_(module[-1].bias.data[:num_anchors], -np.log((1 - pi) / pi))
+                nn.init.constant_(module[-1].bias[:num_anchors], b) # -np.log((1 - pi) / pi))
 
             # for layer in self.regression_heads:
             #     nn.init.normal_(layer.weight.data, mean=0.0, std=0.01)
