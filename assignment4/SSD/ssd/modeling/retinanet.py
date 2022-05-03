@@ -141,10 +141,14 @@ class RetinaNet(nn.Module):
             #     pi = 0.01
             #     nn.init.constant_(layer.bias.data[:num_anchors], -np.log((1 - pi) / pi))
         else:
-            layers = [*self.regression_heads, *self.classification_heads]
-            for layer in layers:
-                for param in layer.parameters():
+            if self.use_deeper_heads:
+                for param in self.regression_heads.parameters():
                     if param.dim() > 1: nn.init.xavier_uniform_(param)
+            else:
+                layers = [*self.regression_heads, *self.classification_heads]
+                for layer in layers:
+                    for param in layer.parameters():
+                        if param.dim() > 1: nn.init.xavier_uniform_(param)
 
     def regress_boxes(self, features):
         locations = []
