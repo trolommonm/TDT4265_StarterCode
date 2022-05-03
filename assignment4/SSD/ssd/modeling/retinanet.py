@@ -69,8 +69,10 @@ class RetinaNet(nn.Module):
                     nn.init.normal_(layer.weight, mean=0.0, std=0.01)
                     nn.init.constant_(layer.bias, 0)
 
-            p = 0.99
-            b = np.log(p * (self.num_classes - 1) / (1 - p))
+            # p = 0.99
+            # b = np.log(p * (self.num_classes - 1) / (1 - p))
+            pi = 0.01
+            b = -np.log((1 - pi ) / pi)
             nn.init.constant_(self.classification_heads[-1].bias[:self.num_anchors], b)
         else:
             for layer in layers:
