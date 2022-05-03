@@ -110,7 +110,7 @@ class RetinaNet(nn.Module):
 
             p = 0.99
             b = np.log(p * (9 - 1) / (1 - p))
-            nn.init_constant_(self.classification_heads[-1].bias[:self.num_anchors], b)
+            nn.init.constant_(self.classification_heads[-1].bias[:self.num_anchors], b)
 
             # for module in self.regression_heads:
             #     for layer in module:
