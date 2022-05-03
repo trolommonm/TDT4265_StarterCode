@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from tops import to_cuda
 
 
-def focal_loss(confs, gt_labels):
+def focal_loss(confs, gt_labels, alpha: torch.FloatTensor):
     """
     confs: [batch_size, num_classes, num_anchors]
     gt_labels = [batch_size, num_anchors]
@@ -15,7 +15,6 @@ def focal_loss(confs, gt_labels):
     soft_confs = F.softmax(confs, dim=1)
     log_soft_confs = F.log_softmax(confs, dim=1)
 
-    alpha = torch.FloatTensor([10, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000])
     alpha = alpha.view(1, -1, 1)
     alpha = to_cuda(alpha)
     gamma = 2
@@ -30,7 +29,9 @@ class FocalLoss(nn.Module):
         Implements focal loss
     """
 
-    def __init__(self, anchors):
+    def __init__(self,
+                 anchors,
+                 alpha: torch.Tensor = torch.FloatTensor([10, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000])):
         super().__init__()
         self.scale_xy = 1.0 / anchors.scale_xy
         self.scale_wh = 1.0 / anchors.scale_wh
@@ -38,6 +39,7 @@ class FocalLoss(nn.Module):
         self.sl1_loss = nn.SmoothL1Loss(reduction='none')
         self.anchors = nn.Parameter(anchors(order="xywh").transpose(0, 1).unsqueeze(dim=0),
                                     requires_grad=False)
+        self.alpha = alpha
 
     def _loc_vec(self, loc):
         """
@@ -68,7 +70,7 @@ class FocalLoss(nn.Module):
         """
 
         # focal loss
-        classification_loss = focal_loss(confs, gt_labels)
+        classification_loss = focal_loss(confs, gt_labels, self.alpha)
         print("classification_loss: ", classification_loss)
 
         pos_mask = (gt_labels > 0).unsqueeze(1).repeat(1, 4, 1)
