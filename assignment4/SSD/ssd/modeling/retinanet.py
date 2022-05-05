@@ -64,7 +64,11 @@ class RetinaNet(nn.Module):
 
         if use_improved_weight:
             # task 2.3.4 weight initialization
-            for layer in layers:
+            for layer in self.regression_heads:
+                for param in layer.parameters():
+                    if param.dim() > 1: nn.init.xavier_uniform_(param)
+
+            for layer in self.classification_heads:
                 if hasattr(layer, "bias"):
                     nn.init.normal_(layer.weight, mean=0.0, std=0.01)
                     nn.init.constant_(layer.bias, 0)
