@@ -1,0 +1,21 @@
+from .task23_iteration4 import (
+    train,
+    optimizer,
+    schedulers,
+    data_train,
+    data_val,
+    train_cpu_transform,
+    val_cpu_transform,
+    gpu_transform,
+    label_map,
+    anchors,
+    backbone,
+    model,
+    loss_objective
+)
+from .utils import get_dataset_dir
+
+data_train.dataset.img_folder = get_dataset_dir("tdt4265_2022_updated")
+data_train.dataset.annotation_file = get_dataset_dir("tdt4265_2022_updated/train_annotations.json")
+data_val.dataset.img_folder = get_dataset_dir("tdt4265_2022_updated")
+data_val.dataset.annotation_file = get_dataset_dir("tdt4265_2022_updated/val_annotations.json")
