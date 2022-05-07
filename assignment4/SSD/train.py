@@ -67,6 +67,8 @@ def train(config_path: Path, evaluate_only: bool):
     cfg = utils.load_config(config_path)
     print_config(cfg)
 
+    max_mAP = 0
+
     tops.init(cfg.output_dir)
     tops.set_AMP(cfg.train.amp)
     tops.set_seed(cfg.train.seed)
@@ -83,6 +85,10 @@ def train(config_path: Path, evaluate_only: bool):
         train_state = checkpointer.load_registered_models(load_best=False)
         total_time = train_state["total_time"]
         logger.log(f"Resuming train from: epoch: {logger.epoch()}, global step: {logger.global_step()}")
+
+        logs = tops.logger.read_logs(Path(cfg.output_dir))
+        mAP_entries = [entry["metrics/mAP"] for entry in logs if "metrics/mAP" in entry]
+        max_mAP = max(mAP_entries)
 
     gpu_transform_val = instantiate(cfg.data_val.gpu_transform)
     gpu_transform_train = instantiate(cfg.data_train.gpu_transform)
@@ -112,7 +118,11 @@ def train(config_path: Path, evaluate_only: bool):
         eval_stats = {f"metrics/{key}": val for key, val in eval_stats.items()}
         logger.add_dict(eval_stats, level=logger.logger.INFO)
         train_state = dict(total_time=total_time)
-        checkpointer.save_registered_models(train_state, is_best=True)
+
+        mAP = eval_stats["metrics/mAP"]
+        is_best = True if mAP > max_mAP else False
+        checkpointer.save_registered_models(train_state, is_best=is_best)
+
         logger.step_epoch()
     logger.add_scalar("stats/total_time", total_time)
 
