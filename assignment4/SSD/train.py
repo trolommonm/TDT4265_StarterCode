@@ -112,7 +112,7 @@ def train(config_path: Path, evaluate_only: bool):
         eval_stats = {f"metrics/{key}": val for key, val in eval_stats.items()}
         logger.add_dict(eval_stats, level=logger.logger.INFO)
         train_state = dict(total_time=total_time)
-        checkpointer.save_registered_models(train_state)
+        checkpointer.save_registered_models(train_state, is_best=True)
         logger.step_epoch()
     logger.add_scalar("stats/total_time", total_time)
 
