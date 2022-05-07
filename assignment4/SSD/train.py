@@ -120,7 +120,11 @@ def train(config_path: Path, evaluate_only: bool):
         train_state = dict(total_time=total_time)
 
         mAP = eval_stats["metrics/mAP"]
-        is_best = True if mAP > max_mAP else False
+        if mAP > max_mAP:
+            is_best = True
+            max_mAP = mAP
+        else:
+            is_best = False
         checkpointer.save_registered_models(train_state, is_best=is_best)
 
         logger.step_epoch()
