@@ -1,4 +1,4 @@
-from .task24_config_5 import (
+from .task25_config_2 import (
     train,
     optimizer,
     schedulers,
