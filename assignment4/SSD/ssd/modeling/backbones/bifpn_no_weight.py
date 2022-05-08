@@ -1,3 +1,5 @@
+# referenced from https://github.com/tristandb/EfficientDet-PyTorch/blob/master/bifpn.py
+
 from collections import OrderedDict
 
 import torch
