@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models
 from typing import List
-from tops.torch_utils import to_cuda
 
 
 class DepthwiseConvBlock(nn.Module):
@@ -110,7 +109,7 @@ class BiFPN(nn.Module):
                 output_channels: List[int],
                 feature_size=64):
         super(BiFPN, self).__init__()
-        self.out_channels = [feature_size]*6
+        self.out_channels = [feature_size] * 6
         self.resnet_model = torchvision.models.resnet34(pretrained=True)
 
         self.p0 = nn.Conv2d(output_channels[0], feature_size, 1)

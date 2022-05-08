@@ -18,5 +18,6 @@ from tops.config import LazyCall as L
 from ssd.modeling.backbones import BiFPN
 
 backbone = L(BiFPN)(
-    output_channels=[64, 128, 256, 512, 1024, 2048]
+    output_channels=[64, 128, 256, 512, 1024, 2048],
+    feature_size=256
 )
