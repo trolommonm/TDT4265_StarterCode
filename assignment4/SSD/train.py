@@ -119,10 +119,13 @@ def train(config_path: Path, evaluate_only: bool):
         logger.add_dict(eval_stats, level=logger.logger.INFO)
         train_state = dict(total_time=total_time)
 
-        mAP = eval_stats["metrics/mAP"]
-        if mAP > max_mAP:
-            is_best = True
-            max_mAP = mAP
+        if "metrics/mAP" in eval_stats:
+            mAP = eval_stats["metrics/mAP"]
+            if mAP > max_mAP:
+                is_best = True
+                max_mAP = mAP
+            else:
+                is_best = False
         else:
             is_best = False
         checkpointer.save_registered_models(train_state, is_best=is_best)
